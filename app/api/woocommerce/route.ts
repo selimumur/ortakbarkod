@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { createClient } from '@supabase/supabase-js';
 
-// Supabase Kurulumu
+// 1. DÜZELTME: Service Role Key kullanımı (Admin Yetkisi)
+// Backend işlemlerinde RLS engeline takılmamak için bu şarttır.
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!; 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 // YARDIMCI: Basic Auth Header Oluşturucu
@@ -11,21 +12,20 @@ function getAuthHeader(key: string, secret: string) {
     return "Basic " + Buffer.from(`${key}:${secret}`).toString("base64");
 }
 
-export async function POST(request: Request) {
-    console.log("🔵 WooCommerce POST İsteği Başladı...");
-    
+// ---------------------------------------------------------------------------
+// 1. GET METODU (WooCommerce'den Ürünleri Listelemek/Çekmek İçin)
+// Kullanımı: /api/woocommerce?account_id=123
+// ---------------------------------------------------------------------------
+export async function GET(request: Request) {
     try {
-        // 1. Frontend'den gelen veriyi al
-        const body = await request.json();
-        const { account_id, product } = body;
+        const { searchParams } = new URL(request.url);
+        const account_id = searchParams.get('account_id');
 
-        console.log("📦 Gelen Veri:", { account_id, productName: product?.name });
-
-        if (!account_id || !product) {
-            return NextResponse.json({ success: false, error: "Eksik Veri: account_id veya product yok." }, { status: 400 });
+        if (!account_id) {
+            return NextResponse.json({ success: false, error: "account_id parametresi gerekli" }, { status: 400 });
         }
 
-        // 2. Veritabanından Mağaza Bilgilerini Çek
+        // Mağaza Bilgilerini Çek
         const { data: account, error } = await supabase
             .from('marketplace_accounts')
             .select('*')
@@ -33,20 +33,82 @@ export async function POST(request: Request) {
             .single();
 
         if (error || !account) {
-            console.error("❌ Mağaza Bulunamadı:", error);
             return NextResponse.json({ success: false, error: "Mağaza bulunamadı" }, { status: 404 });
         }
 
-        // 3. WooCommerce API Hazırlığı (Manuel Fetch)
-        // URL sonundaki slash'i temizle ve API yolunu ekle
-        const baseUrl = account.store_url?.replace(/\/$/, ""); 
-        const apiUrl = `${baseUrl}/wp-json/wc/v3/products`;
-        
+        // URL Hazırla (Hem base_url hem store_url kontrolü)
+        const dbBaseUrl = account.base_url || account.store_url; 
+        if (!dbBaseUrl) {
+             return NextResponse.json({ success: false, error: "Mağaza URL'si eksik" }, { status: 400 });
+        }
+        const baseUrl = dbBaseUrl.replace(/\/$/, "");
+
+        const apiUrl = `${baseUrl}/wp-json/wc/v3/products?per_page=50`;
         const authHeader = getAuthHeader(account.api_key, account.api_secret);
 
-        console.log("🚀 WooCommerce'e İstek Atılıyor:", apiUrl);
+        console.log("📥 WooCommerce'den Ürünler Çekiliyor:", apiUrl);
 
-        // 4. İsteği Gönder (Kütüphanesiz, Saf Fetch)
+        const response = await fetch(apiUrl, {
+            method: 'GET',
+            headers: {
+                "Authorization": authHeader,
+                "Content-Type": "application/json",
+                "User-Agent": "OrtakBarkod/1.0"
+            }
+        });
+
+        if (!response.ok) {
+            const errText = await response.text();
+            return NextResponse.json({ success: false, error: `WooCommerce Hatası: ${response.status} - ${errText}` }, { status: response.status });
+        }
+
+        const products = await response.json();
+        
+        return NextResponse.json({ 
+            success: true, 
+            count: products.length,
+            products: products 
+        });
+
+    } catch (error: any) {
+        console.error("🔥 GET Hatası:", error);
+        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 2. POST METODU (WooCommerce'e Yeni Ürün Göndermek İçin)
+// ---------------------------------------------------------------------------
+export async function POST(request: Request) {
+    console.log("🔵 WooCommerce POST İsteği Başladı...");
+    
+    try {
+        const body = await request.json();
+        const { account_id, product } = body;
+
+        if (!account_id || !product) {
+            return NextResponse.json({ success: false, error: "Eksik Veri: account_id veya product yok." }, { status: 400 });
+        }
+
+        const { data: account, error } = await supabase
+            .from('marketplace_accounts')
+            .select('*')
+            .eq('id', account_id)
+            .single();
+
+        if (error || !account) {
+            return NextResponse.json({ success: false, error: "Mağaza bulunamadı" }, { status: 404 });
+        }
+
+        const dbBaseUrl = account.base_url || account.store_url; 
+        if (!dbBaseUrl) return NextResponse.json({ success: false, error: "URL eksik" }, { status: 400 });
+        const baseUrl = dbBaseUrl.replace(/\/$/, "");
+        
+        const apiUrl = `${baseUrl}/wp-json/wc/v3/products`;
+        const authHeader = getAuthHeader(account.api_key, account.api_secret);
+
+        console.log("🚀 WooCommerce'e Ürün Gönderiliyor:", apiUrl);
+
         const response = await fetch(apiUrl, {
             method: 'POST',
             headers: {
@@ -63,27 +125,17 @@ export async function POST(request: Request) {
                 sku: product.sku || product.barcode || "",
                 manage_stock: true,
                 stock_quantity: Number(product.stock) || 0,
-                status: "publish"
+                status: "publish" // Taslak yerine direkt yayına alıyoruz
             })
         });
 
-        // 5. Yanıtı Oku (Text olarak alıp kontrol edeceğiz)
         const responseText = await response.text();
-        console.log("📩 WooCommerce Yanıtı (Ham):", responseText.substring(0, 100) + "..."); // İlk 100 karakteri gör
 
         if (!response.ok) {
             console.error("❌ WooCommerce Hatası:", responseText);
-            // Eğer yanıt boşsa varsayılan mesaj dön
-            const errorMessage = responseText || `WooCommerce Sunucu Hatası: ${response.status}`;
-            return NextResponse.json({ success: false, error: errorMessage }, { status: response.status });
+            return NextResponse.json({ success: false, error: responseText }, { status: response.status });
         }
 
-        if (!responseText) {
-            console.error("❌ Boş Yanıt Geldi!");
-            return NextResponse.json({ success: false, error: "WooCommerce'den boş yanıt geldi." }, { status: 500 });
-        }
-
-        // 6. JSON'a Çevir ve Gönder
         const data = JSON.parse(responseText);
         console.log("✅ Ürün Başarıyla Oluşturuldu ID:", data.id);
         
@@ -91,18 +143,13 @@ export async function POST(request: Request) {
 
     } catch (error: any) {
         console.error("🔥 Kritik Server Hatası:", error);
-        return NextResponse.json({ success: false, error: error.message || "Bilinmeyen sunucu hatası" }, { status: 500 });
+        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
     }
 }
 
-// GET Metodu (Siparişleri çekmek için - Aynen kalabilir veya güncelleyebilirsin)
-export async function GET(request: Request) {
-    // ... (Mevcut GET kodların buraya)
-    // Eğer GET'te sorun yoksa burayı ellemene gerek yok.
-    return NextResponse.json({ success: true, message: "GET çalışıyor" });
-}
-
-// PUT Metodu (Güncelleme için - Saf Fetch Versiyonu)
+// ---------------------------------------------------------------------------
+// 3. PUT METODU (WooCommerce'deki Ürünü Güncellemek İçin)
+// ---------------------------------------------------------------------------
 export async function PUT(request: Request) {
     try {
         const body = await request.json();
@@ -116,7 +163,9 @@ export async function PUT(request: Request) {
 
         if (!account) return NextResponse.json({ error: "Mağaza yok" }, { status: 404 });
 
-        const baseUrl = account.store_url?.replace(/\/$/, "");
+        const dbBaseUrl = account.base_url || account.store_url; 
+        const baseUrl = dbBaseUrl?.replace(/\/$/, "");
+
         const response = await fetch(`${baseUrl}/wp-json/wc/v3/products/${product_id}`, {
             method: 'PUT',
             headers: {
