@@ -435,6 +435,26 @@ export default function ProductMatchingPage() {
                                                 Seçili: {excelFile.name}
                                             </p>
                                         )}
+
+                                        {/* Template Downloads */}
+                                        <div className="mt-2 flex gap-2 text-xs">
+                                            <span className="text-gray-400">Örnek şablonlar:</span>
+                                            <a
+                                                href="/templates/trendyol-ornek.xlsx"
+                                                download
+                                                className="text-blue-400 hover:text-blue-300 underline"
+                                            >
+                                                Trendyol
+                                            </a>
+                                            <span className="text-gray-600">|</span>
+                                            <a
+                                                href="/templates/woocommerce-ornek.xlsx"
+                                                download
+                                                className="text-blue-400 hover:text-blue-300 underline"
+                                            >
+                                                WooCommerce
+                                            </a>
+                                        </div>
                                     </div>
 
                                     {/* Instructions */}
