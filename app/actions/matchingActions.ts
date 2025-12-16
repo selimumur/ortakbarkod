@@ -184,10 +184,8 @@ export async function matchProductAction(payload: {
     if (!account) throw new Error("Mağaza bulunamadı.");
 
     const linkData = {
-        organization_id: orgId,
         product_id: payload.master_product_id,
         marketplace_id: account.id,
-        // marketplace: account.store_name, // REMOVED: Column does not exist
         remote_product_id: String(payload.remote_product_id),
         remote_variant_id: payload.remote_variant_id ? String(payload.remote_variant_id) : null,
         barcode: payload.remote_data?.barcode || null,

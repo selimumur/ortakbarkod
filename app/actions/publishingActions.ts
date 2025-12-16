@@ -167,7 +167,6 @@ export async function publishProductsAction(payload: {
 
                 if (!existingLink) {
                     await supabase.from('product_marketplaces').insert({
-                        organization_id: orgId,
                         product_id: p.id,
                         marketplace_id: account.id,
                         remote_product_id: String(wooId),

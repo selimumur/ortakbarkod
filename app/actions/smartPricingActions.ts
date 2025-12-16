@@ -106,7 +106,6 @@ export async function manualLinkAction(payload: {
     if (exist) throw new Error("Bu ürün zaten bu pazaryerine bağlı.");
 
     const { error } = await supabase.from('product_marketplaces').insert({
-        organization_id: orgId,
         product_id: payload.productId,
         marketplace_id: payload.marketplaceId,
         remote_product_id: payload.remoteId,

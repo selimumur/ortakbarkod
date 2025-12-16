@@ -183,7 +183,6 @@ export async function bulkMatchProductsAction(
 
             // Prepare match data
             matchesToInsert.push({
-                organization_id: orgId,
                 product_id: masterProduct.id,
                 marketplace_id: account.id,
                 remote_product_id: excelProduct.remoteProductId,
