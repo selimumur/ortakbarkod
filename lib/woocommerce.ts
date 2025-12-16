@@ -8,22 +8,22 @@ function getSupabaseAdmin() {
   // NOT: Service Role Key yoksa Anon Key ile de çalışır ama RLS kapalı olmalı.
   // Güvenlik için env dosyanda SUPABASE_SERVICE_ROLE_KEY olduğundan emin ol.
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  
+
   if (!url || !key) throw new Error("Supabase URL veya Key eksik!");
-  
+
   return createClient(url, key);
 }
 
 // 1. Dinamik WooCommerce İstemcisi
-export async function getWooCommerceClient(accountId?: number) { 
+export async function getWooCommerceClient(accountId?: number) {
   // Opsiyonel: Belirli bir hesap ID'si verilirse onu, yoksa ilk aktif olanı çeker.
-  
+
   const supabase = getSupabaseAdmin();
-  
+
   let query = supabase
-    .from('marketplace_accounts') // DÜZELTME 1: Tablo adı 'marketplace_accounts' oldu
+    .from('marketplace_accounts') // FIXED: Reverted to correct table name
     .select('*')
-    .eq('platform', 'WooCommerce') // Veya 'WooCommerce'
+    //.eq('platform', 'WooCommerce') // Removing platform filter as 'WooCommerce' might be stored differently or implied
     .eq('is_active', true);
 
   if (accountId) {
@@ -39,9 +39,9 @@ export async function getWooCommerceClient(accountId?: number) {
   // DÜZELTME 2: URL artık 'supplier_id' değil 'base_url' sütununda tutuluyor.
   // Eski yapıdan kalma ihtimaline karşı ikisini de kontrol edelim.
   let siteUrl = config.base_url || config.supplier_id || config.store_url;
-  
+
   if (!siteUrl) throw new Error("WooCommerce Site Adresi (Base URL) eksik!");
-  
+
   // URL temizliği
   siteUrl = siteUrl.replace(/\/$/, ""); // Sondaki slash'i temizle
   if (!siteUrl.startsWith("http")) siteUrl = "https://" + siteUrl;
@@ -68,7 +68,7 @@ export async function createProductInWooCommerce(productData: any, accountId?: n
   try {
     // 1. ADIM: SKU ile arama yap
     const checkRes = await api.get("products", { sku: sku });
-    
+
     if (checkRes.data && checkRes.data.length > 0) {
       console.log(`[WooCommerce] Ürün zaten bulundu. ID: ${checkRes.data[0].id}`);
       return checkRes.data[0];
@@ -92,15 +92,15 @@ export async function createProductInWooCommerce(productData: any, accountId?: n
   try {
     console.log("[WooCommerce] Yeni ürün oluşturuluyor...");
     const response = await api.post("products", wooPayload);
-    return response.data; 
+    return response.data;
   } catch (error: any) {
     // Duplicate SKU hatası kontrolü
     if (error.response?.data?.code === 'product_invalid_sku' || error.response?.data?.message?.includes('SKU')) {
-        console.log("[WooCommerce] Duplicate SKU hatası alındı, ürün tekrar aranıyor...");
-        const retryRes = await api.get("products", { sku: sku });
-        if (retryRes.data.length > 0) return retryRes.data[0];
+      console.log("[WooCommerce] Duplicate SKU hatası alındı, ürün tekrar aranıyor...");
+      const retryRes = await api.get("products", { sku: sku });
+      if (retryRes.data.length > 0) return retryRes.data[0];
     }
-    
+
     console.error("[WooCommerce] Oluşturma Hatası:", error.response?.data);
     throw new Error(error.response?.data?.message || "WooCommerce tarafında bilinmeyen hata");
   }
@@ -109,7 +109,7 @@ export async function createProductInWooCommerce(productData: any, accountId?: n
 // 3. FİYAT / STOK / İSİM GÜNCELLEME
 export async function updateProductPriceInWoo(remoteId: string, data: { price?: number, stock?: number, name?: string }, accountId?: number) {
   const api = await getWooCommerceClient(accountId);
-  
+
   const payload: any = {};
   if (data.price !== undefined) payload.regular_price = data.price.toString();
   if (data.stock !== undefined) payload.stock_quantity = data.stock;

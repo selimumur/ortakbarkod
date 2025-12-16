@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getOrganizationId } from "@/lib/accessControl";
 import https from 'https';
 
 // 1. BİLGİLERİ BURAYA SABİT GİRİYORUZ (Hata riskini sıfırlamak için)
@@ -42,9 +43,14 @@ function fetchWithNode(url: string, auth: string): Promise<any> {
 }
 
 export async function GET() {
+  const orgId = await getOrganizationId();
+  if (!orgId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // TODO: Fetch credentials from DB using orgId instead of hardcoded
+  // For now, we keep hardcoded but at least ensure user is logged in.
   // Basic Auth Şifreleme
   const auth = Buffer.from(`${MERCHANT_ID}:${API_KEY}`).toString("base64");
-  
+
   // --- TAKTİK DEĞİŞİKLİĞİ: 'orders' yerine 'packages' servisini deniyoruz ---
   // Bu servis kargo işlemleri için daha doğrudur.
   // status=0 (Hazırlanıyor/Unpacked), limit=50
@@ -53,7 +59,7 @@ export async function GET() {
   try {
     console.log("HB İSTEK GİDİYOR:", url);
     const data: any = await fetchWithNode(url, auth);
-    
+
     console.log("HB BAŞARILI CEVAP GELDİ!");
 
     // Hepsiburada yapısı (items veya content olabilir)
@@ -62,8 +68,8 @@ export async function GET() {
     const cleanOrders = hbPackages.map((pkg: any) => {
       let myStatus = "Diğer";
       // Hepsiburada Paket Statüleri
-      const s = pkg.status; 
-      
+      const s = pkg.status;
+
       if (s === "Unpacked" || s === "ReadyToPack") myStatus = "Hazırlanıyor";
       else if (s === "Packed" || s === "Shipped" || s === "InTransit") myStatus = "Kargoda";
       else if (s === "Delivered") myStatus = "Teslim Edildi";
@@ -71,33 +77,33 @@ export async function GET() {
       else myStatus = "Yeni";
 
       return {
-        id: pkg.orderNumber, 
-        packet_id: pkg.id, 
+        id: pkg.orderNumber,
+        packet_id: pkg.id,
         status: myStatus,
         original_status: pkg.status,
-        
+
         customer_name: pkg.customerName || "HB Müşterisi",
         // HB bazen email vermez
-        customer_email: "", 
-        
+        customer_email: "",
+
         // Fiyat
         total_price: pkg.totalPrice || 0,
-        
+
         // Kargo
         cargo_tracking_number: pkg.cargoTrackingNumber,
         cargo_provider_name: pkg.cargoCompany || "Hepsiburada Kargo",
-        
+
         // Ürün Bilgisi (HB Paket içinde lines döner)
         product_count: pkg.lines ? pkg.lines.length : 1,
         first_product_name: pkg.lines?.[0]?.name || "Ürün",
         first_product_code: pkg.lines?.[0]?.sku || pkg.lines?.[0]?.merchantSku || "-",
-        first_product_img: "", 
-        
+        first_product_img: "",
+
         // Tarih
         order_date: pkg.orderDate ? new Date(pkg.orderDate).toISOString() : new Date().toISOString(),
         shipment_deadline: pkg.dueDate ? new Date(pkg.dueDate).toISOString() : new Date().toISOString(),
-        
-        platform: "Hepsiburada", 
+
+        platform: "Hepsiburada",
         raw_data: pkg
       };
     });

@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <style>
+    body {
+      width: 340px;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #111827;
+      color: white;
+      margin: 0;
+      padding: 0;
+    }
+
+    .header {
+      background: linear-gradient(to right, #2563eb, #4f46e5);
+      padding: 12px 16px;
+      font-weight: bold;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .container {
+      padding: 16px;
+    }
+
+    .card {
+      background: #1f2937;
+      border: 1px solid #374151;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+
+    .label {
+      font-size: 10px;
+      color: #9ca3af;
+      text-transform: uppercase;
+      font-weight: bold;
+      margin-bottom: 4px;
+      display: block;
+    }
+
+    .row {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+    }
+
+    .thumb {
+      width: 60px;
+      height: 60px;
+      border-radius: 6px;
+      object-fit: contain;
+      background: white;
+      border: 1px solid #374151;
+    }
+
+    .title-input {
+      background: transparent;
+      border: none;
+      color: white;
+      width: 100%;
+      font-size: 12px;
+      font-weight: 500;
+      resize: none;
+      height: 36px;
+      outline: none;
+    }
+
+    .title-input:focus {
+      background: #374151;
+      border-radius: 4px;
+    }
+
+    .input-group {
+      margin-bottom: 8px;
+    }
+
+    .input-field {
+      background: #374151;
+      border: 1px solid #4b5563;
+      color: white;
+      padding: 6px 8px;
+      width: 100%;
+      border-radius: 6px;
+      box-sizing: border-box;
+      font-size: 13px;
+      font-weight: bold;
+    }
+
+    .input-field:focus {
+      border-color: #3b82f6;
+      outline: none;
+    }
+
+    .attrs-preview {
+      font-size: 10px;
+      color: #9ca3af;
+      max-height: 60px;
+      overflow-y: auto;
+      background: #111827;
+      padding: 6px;
+      border-radius: 4px;
+      margin-top: 8px;
+    }
+
+    .tag {
+      display: inline-block;
+      background: #374151;
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin: 2px;
+      color: #e5e7eb;
+    }
+
+    .btn {
+      width: 100%;
+      border: none;
+      padding: 10px;
+      border-radius: 8px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: 0.2s;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      color: white;
+      margin-top: 8px;
+    }
+
+    .btn-primary {
+      background: #2563eb;
+    }
+
+    .btn-primary:hover {
+      background: #1d4ed8;
+    }
+
+    .btn-download {
+      background: #059669;
+      margin-bottom: 4px;
+    }
+
+    .btn-download:hover {
+      background: #047857;
+    }
+
+    .btn:disabled {
+      background: #374151;
+      color: #6b7280;
+      cursor: not-allowed;
+    }
+
+    .status {
+      text-align: center;
+      margin-top: 10px;
+      font-size: 11px;
+      min-height: 16px;
+    }
+
+    .success {
+      color: #4ade80;
+    }
+
+    .error {
+      color: #f87171;
+    }
+
+    .badge {
+      background: #ef4444;
+      color: white;
+      padding: 2px 6px;
+      border-radius: 10px;
+      font-size: 9px;
+      margin-left: auto;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="header">
+    <span>Arbitraj Asistanı</span>
+    <span id="img-count" class="badge" style="display:none">0 Görsel</span>
+  </div>
+
+  <div class="container">
+
+    <div class="card">
+      <div class="row">
+        <img id="p-image" class="thumb" src="">
+        <div style="flex:1">
+          <textarea id="p-title" class="title-input" placeholder="Ürün başlığı..."></textarea>
+          <div id="attrs-container" class="attrs-preview"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row">
+        <div style="flex:1">
+          <span class="label">Mevcut Fiyat</span>
+          <input type="number" id="p-price" class="input-field" step="0.01">
+        </div>
+        <div style="flex:1">
+          <span class="label">Benim Satış Fiyatım</span>
+          <input type="number" id="p-target-price" class="input-field" step="0.01" placeholder="Opsiyonel">
+        </div>
+      </div>
+    </div>
+
+    <!-- Hidden link for downloading -->
+    <a id="dl-link" style="display:none"></a>
+
+    <button id="btn-download-imgs" class="btn btn-download">
+      📸 Görselleri İndir (.Zip)
+    </button>
+
+    <button id="btn-save" class="btn btn-primary">
+      💾 Listeye Kaydet
+    </button>
+
+    <div id="status" class="status"></div>
+  </div>
+
+  <script src="jszip.min.js"></script>
+  <!-- Need to inject this or use a CDN? Manifest prevents CDN usually. I'll omit ZIP logic for now and just open tabs or download one by one, OR use data URLs. -->
+  <!-- Actually, user asked for download link. I will just "Open Images" or simple download loop. -->
+  <script src="popup.js"></script>
+</body>
+
+</html>

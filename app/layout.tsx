@@ -1,30 +1,26 @@
-import type { Metadata } from "next";
-import "./globals.css";
-import Sidebar from "./components/Sidebar";
-import { Toaster } from 'sonner'; // <-- İşte sihirli paketimiz
+import { ClerkProvider } from '@clerk/nextjs'
+import { trTR } from '@clerk/localizations'
+import './globals.css'
+import { Toaster } from 'sonner'
 
-export const metadata: Metadata = {
-  title: "OrtakBarkod Paneli",
-  description: "E-Ticaret Operasyon Yönetimi",
-};
+export const metadata = {
+  title: 'OrtakBarkod - SaaS',
+  description: 'Gelişmiş e-ticaret yönetim paneli',
+}
 
 export default function RootLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+}: {
+  children: React.ReactNode
+}) {
   return (
-    <html lang="tr">
-      <body className="flex bg-[#0B1120] overflow-hidden">
-        {/* Bildirim Kutusu (Tüm sayfalarda çalışacak şekilde buraya koyduk) */}
-        <Toaster position="top-right" richColors theme="dark" />
-        
-        <Sidebar />
-        
-        <div className="flex-1 h-screen overflow-auto">
-           {children}
-        </div>
-      </body>
-    </html>
-  );
+    <ClerkProvider localization={trTR}>
+      <html lang="tr">
+        <body className="bg-[#0B1120] text-slate-100 min-h-screen">
+          {children}
+          <Toaster position="top-right" theme="dark" />
+        </body>
+      </html>
+    </ClerkProvider>
+  )
 }

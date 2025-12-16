@@ -16,11 +16,48 @@ const nextConfig: NextConfig = {
     // Hata olsa da canlıya çık
     ignoreBuildErrors: true,
   },
-  // Eslint bloğunu kaldırdık (Artık desteklenmiyor)
-  
+
   // Turbopack hatasını susturmak için bu satırı ekliyoruz:
   // @ts-ignore
-  turbopack: {}, 
+  turbopack: {},
+  async redirects() {
+    return [
+      {
+        source: '/login',
+        destination: '/sign-in',
+        permanent: true,
+      },
+    ];
+  },
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          {
+            key: 'X-DNS-Prefetch-Control',
+            value: 'on'
+          },
+          {
+            key: 'Strict-Transport-Security',
+            value: 'max-age=63072000; includeSubDomains; preload'
+          },
+          {
+            key: 'X-Frame-Options',
+            value: 'SAMEORIGIN'
+          },
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff'
+          },
+          {
+            key: 'Referrer-Policy',
+            value: 'origin-when-cross-origin'
+          }
+        ]
+      }
+    ]
+  },
 };
 
 export default withPWA(nextConfig);

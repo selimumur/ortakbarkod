@@ -1,13 +1,19 @@
 import { NextResponse } from "next/server";
 import { createClient } from '@supabase/supabase-js';
+import { getOrganizationId } from "@/lib/accessControl";
+import { getSupabaseAdmin } from "@/lib/supabaseClient";
 
 export async function GET() {
-  const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
-  
+  const orgId = await getOrganizationId();
+  if (!orgId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const supabase = getSupabaseAdmin();
+
   // 1. Şifreleri Çek
   const { data: config } = await supabase
     .from('marketplace_connections')
     .select('*')
+    .eq('organization_id', orgId)
     .eq('platform', 'Shopify')
     .eq('is_active', true)
     .single();
@@ -49,28 +55,28 @@ export async function GET() {
       const firstItem = order.line_items ? order.line_items[0] : {};
 
       return {
-        id: order.id, 
-        packet_id: order.order_number, 
+        id: order.id,
+        packet_id: order.order_number,
         status: myStatus,
         original_status: order.financial_status,
-        
+
         customer_name: order.shipping_address ? `${order.shipping_address.first_name} ${order.shipping_address.last_name}` : "Shopify Müşterisi",
         customer_email: order.email,
-        
+
         total_price: order.total_price,
-        
+
         cargo_tracking_number: "", // Shopify'dan ayrıca çekilmesi gerekebilir
         cargo_provider_name: "Shopify Kargo",
-        
+
         product_count: order.line_items.length,
         first_product_name: firstItem.name || "Ürün",
         first_product_code: firstItem.sku || "-",
         first_product_img: "", // Shopify order listesinde resim url'i direkt gelmez, ürün ID ile çekilir (Basitlik için boş)
-        
+
         order_date: new Date(order.created_at).toISOString(),
         shipment_deadline: null,
-        
-        platform: "Shopify", 
+
+        platform: "Shopify",
         raw_data: order
       };
     });

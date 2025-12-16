@@ -1,0 +1,40 @@
+{
+    "manifest_version": 3,
+    "name": "OrtakBarkod Arbitraj Asistanı",
+    "version": "1.1",
+    "description": "Trendyol ve Hepsiburada ürünlerini özellikleriyle birlikte aktarır.",
+    "permissions": [
+        "activeTab",
+        "scripting",
+        "downloads"
+    ],
+    "host_permissions": [
+        "https://ortakbarkod.vercel.app/*",
+        "http://localhost:3000/*",
+        "*://*.trendyol.com/*",
+        "*://*.hepsiburada.com/*",
+        "*://*.amazon.com.tr/*",
+        "*://*.dsmcdn.com/*",
+        "*://*.images-home-4.net/*"
+    ],
+    "action": {
+        "default_popup": "popup.html",
+        "default_icon": {
+            "16": "icon16.png",
+            "48": "icon48.png",
+            "128": "icon128.png"
+        }
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "*://*.trendyol.com/*",
+                "*://*.hepsiburada.com/*",
+                "*://*.amazon.com.tr/*"
+            ],
+            "js": [
+                "content.js"
+            ]
+        }
+    ]
+}

@@ -1,63 +1,57 @@
 import { NextResponse } from 'next/server';
 import { updateProductPriceInWoo } from '@/lib/woocommerce';
-import { createClient } from '@/utils/supabase/server'; 
+import { createClient } from '@/utils/supabase/server';
 
-// Bu API önbelleğe alınmasın, her çağrıldığında taze çalışsın
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
     const supabase = await createClient();
 
-    // 1. Güncellenmesi gereken kuyruğu çek (sync_needed = true)
-    // Sadece WooCommerce olanları ve henüz işlenmemişleri alıyoruz
+    // 1. Güncellenmesi gereken kuyruğu çek (sync_status = 'pending')
+    // Sadece WooCommerce olanları ve henüz işlenmemişleri alıyoruz (marketplace_id ile kontrol edilebilir)
     const { data: queue, error: queueError } = await supabase
-      .from('product_marketplace_map')
-      .select('*, master_products(*)') 
-      .eq('sync_needed', true)
-      .eq('marketplace_type', 'woocommerce')
-      .limit(5); // Sunucuyu yormamak için her seferinde 5 tane işle
+      .from('product_marketplaces')
+      .select('*, master_products(*)')
+      .eq('sync_status', 'pending')
+      .limit(5); // Limit 5
 
-    if (queueError) {
-      throw new Error("Kuyruk okunamadı: " + queueError.message);
-    }
+    if (queueError) throw new Error("Kuyruk okunamadı: " + queueError.message);
 
     if (!queue || queue.length === 0) {
-      return NextResponse.json({ message: "Kuyruk boş, güncellenecek ürün yok." });
+      return NextResponse.json({ message: "Kuyruk boş." });
     }
 
     const results = [];
 
-    // 2. Kuyruktaki her ürünü sırayla işle
+    // 2. İşle
     for (const item of queue) {
       try {
         const localProduct = item.master_products;
-        
-        if (!localProduct) {
-            throw new Error("Ana ürün veritabanında bulunamadı.");
-        }
-        
-        // Hedef fiyat varsa onu, yoksa ana fiyatı kullan
-        const priceToSend = item.target_price || localProduct.price;
+        if (!localProduct) throw new Error("Ana ürün yok.");
+
+        const priceToSend = item.target_price || localProduct.price || item.sale_price;
         const stockToSend = localProduct.stock;
 
-        console.log(`[Worker] İşleniyor: ${localProduct.name} -> ${priceToSend} TL`);
+        console.log(`[Worker] Güncelleniyor: ${localProduct.name} -> ${priceToSend} TL`);
 
-        // WooCommerce API'ye gönder (Lib fonksiyonunu kullanıyoruz)
+        // WooCommerce API'ye gönder
+        // item.marketplace_id ile connection bilgisini lib içinde çözmemiz lazım ama 
+        // updateProductPriceInWoo şimdilik accountId alıyor mu? Evet, son update ile accountId parametresi var.
         await updateProductPriceInWoo(item.remote_product_id, {
           price: priceToSend,
           stock: stockToSend
-        });
+        }, item.marketplace_id);
 
-        // BAŞARILI! Bayrağı indir ve yeni fiyatı kaydet.
+        // Başarılı
         await supabase
-          .from('product_marketplace_map')
+          .from('product_marketplaces')
           .update({
-            sync_needed: false, // Artık kuyrukta değil
-            remote_price: priceToSend, // Remote fiyat artık güncel
-            remote_stock: stockToSend,
-            last_sync_date: new Date().toISOString(),
-            last_error: null // Varsa eski hatayı sil
+            sync_status: 'synced',
+            sale_price: priceToSend,
+            stock_quantity: stockToSend,
+            last_sync_at: new Date().toISOString(),
+            last_error_message: null
           })
           .eq('id', item.id);
 
@@ -65,13 +59,15 @@ export async function GET() {
 
       } catch (error: any) {
         console.error(`[Worker Hata] ID ${item.id}:`, error.message);
-        
-        // Hata mesajını veritabanına yaz (Kullanıcı panelde görsün)
+
         await supabase
-          .from('product_marketplace_map')
-          .update({ last_error: error.message || "Bilinmeyen hata" })
+          .from('product_marketplaces')
+          .update({
+            sync_status: 'error',
+            last_error_message: error.message || "Bilinmeyen hata"
+          })
           .eq('id', item.id);
-        
+
         results.push({ id: item.id, status: "Failed", error: error.message });
       }
     }

@@ -1,16 +1,43 @@
 import { NextResponse } from "next/server";
 
-export async function POST(req: Request) {
-  const { barcodes } = await req.json(); // Ön yüzden barkod listesi gelecek
-  
-  const supplierId = process.env.TRENDYOL_SUPPLIER_ID;
-  const apiKey = process.env.TRENDYOL_API_KEY;
-  const apiSecret = process.env.TRENDYOL_API_SECRET;
+import { getOrganizationId } from "@/lib/accessControl";
+import { getSupabaseAdmin } from "@/lib/supabaseClient";
 
-  if (!supplierId || !apiKey) return NextResponse.json({ error: "API Eksik" }, { status: 500 });
+export async function POST(req: Request) {
+  const { barcodes, accountId } = await req.json(); // accountId optional
+
+  const orgId = await getOrganizationId();
+  if (!orgId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const supabase = getSupabaseAdmin();
+
+  // Fetch credentials
+  let supplierId, apiKey, apiSecret;
+
+  if (accountId) {
+    const { data } = await supabase.from('marketplace_accounts').select('*').eq('id', accountId).eq('organization_id', orgId).single();
+    if (data) {
+      supplierId = data.supplier_id;
+      apiKey = data.api_key;
+      apiSecret = data.api_secret;
+    }
+  } else {
+    // Fallback: try to find any Trendyol account for this org
+    const { data } = await supabase.from('marketplace_accounts').select('*').eq('organization_id', orgId).ilike('platform', '%trendyol%').limit(1).single();
+    if (data) {
+      supplierId = data.supplier_id;
+      apiKey = data.api_key;
+      apiSecret = data.api_secret;
+    }
+  }
+
+  // Final Fallback to ENV - removed to enforce DB usage (or keep if user really wants mixed mode, but safety first)
+  // if (!supplierId) supplierId = process.env.TRENDYOL_SUPPLIER_ID;
+
+  if (!supplierId || !apiKey) return NextResponse.json({ error: "Trendyol Entegrasyonu Bulunamadı. Lütfen ayarlar sayfasından mağazanızı bağlayın." }, { status: 404 });
 
   const auth = Buffer.from(`${apiKey}:${apiSecret}`).toString("base64");
-  
+
   // DÖKÜMAN : Ürün Buybox Kontrol Servisi
   // Limit: Tek seferde 10 barkod sorgulanabilir.
   const url = `https://api.trendyol.com/integration/product/sellers/${supplierId}/products/buybox-information`;
