@@ -193,8 +193,7 @@ export async function matchProductAction(payload: {
         barcode: payload.remote_data?.barcode || null,
         current_sale_price: payload.remote_data?.price || 0,
         stock_quantity: payload.remote_data?.stock || 0,
-        status: 'active',
-        is_owner: true
+        status: 'active'
     };
 
     const { error } = await supabase.from('product_marketplaces').insert(linkData);

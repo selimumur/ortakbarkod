@@ -174,8 +174,7 @@ export async function publishProductsAction(payload: {
                         remote_variant_id: String(wooId),
                         status: 'active',
                         current_sale_price: parseFloat(wooRes.price || productData.regular_price),
-                        stock_quantity: parseInt(wooRes.stock_quantity || productData.stock_quantity),
-                        is_owner: true
+                        stock_quantity: parseInt(wooRes.stock_quantity || productData.stock_quantity)
                     });
                 }
             } else {

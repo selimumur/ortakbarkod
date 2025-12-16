@@ -191,8 +191,7 @@ export async function bulkMatchProductsAction(
                 barcode: excelProduct.barcode,
                 current_sale_price: excelProduct.price || 0,
                 stock_quantity: excelProduct.stock || 0,
-                status: 'active',
-                is_owner: true
+                status: 'active'
             });
         }
 

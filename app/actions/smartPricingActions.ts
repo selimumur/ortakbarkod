@@ -112,8 +112,7 @@ export async function manualLinkAction(payload: {
         remote_product_id: payload.remoteId,
         remote_variant_id: payload.remoteId,
         current_sale_price: payload.remoteInitialPrice || 0,
-        status: 'active',
-        is_owner: false // Manual link usually means we just mapped it, maybe not owner
+        status: 'active'
     });
 
     if (error) throw new Error(error.message);
